@@ -1,9 +1,11 @@
 from flask import Flask
 from flask_cors import CORS
+from flasgger import Swagger
 import os
 
 
 app = Flask(__name__)
+swagger = Swagger(app)
 
 # 1. CORS 설정
 # 안드로이드 앱(클라이언트)이나 팀원들이 외부에서 접속할 수 있게 허용합니다.
@@ -58,6 +60,6 @@ if __name__ == '__main__':
     from scheduler import start_scheduler
     start_scheduler()
     
-    print(">> [LocalNow] Server is Starting on Port 5000...")
+    print(">> [LocalNow] Server is Starting on Port 5002...")
     # 외부부
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5002, debug=False)

@@ -9,6 +9,13 @@ api_bp = Blueprint('api', __name__)
 # 주소: http://localhost:5000/api/
 @api_bp.route('/', methods=['GET'])
 def health_check():
+    """
+    서버 상태 확인
+    ---
+    responses:
+      200:
+        description: 서버가 정상 작동 중입니다.
+    """
     return jsonify({
         "status": "active",
         "message": "LocalNow API Server is running."
@@ -18,6 +25,13 @@ def health_check():
 # 주소: http://localhost:5000/api/events
 @api_bp.route('/events', methods=['GET'])
 def get_events():
+    """
+    저장된 이벤트 목록 조회
+    ---
+    responses:
+      200:
+        description: DB에 저장된 이벤트 목록을 반환합니다.
+    """
     from datetime import datetime, timedelta
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
     

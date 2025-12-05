@@ -65,7 +65,7 @@ pip install -r requirements.txt
 cd backend
 python app.py
 ```
-서버는 기본적으로 `http://0.0.0.0:5001`에서 실행됩니다.
+서버는 기본적으로 `http://0.0.0.0:5002`에서 실행됩니다. (포트 충돌 방지 및 안정성을 위해 5002번 사용)
 
 ### 4. 크롤링 수동 실행 (테스트용)
 
@@ -74,11 +74,25 @@ python trigger_crawl.py
 ```
 *   크롤러가 실행되어 DB를 업데이트하고, 키워드 알림을 체크하여 발송합니다.
 
+### 5. API 문서 (Swagger)
+
+서버 실행 후 다음 주소에서 API 문서를 확인하고 테스트할 수 있습니다.
+*   `http://localhost:5002/apidocs`
+
+## 📡 원격 접속 가이드 (프론트엔드 연동)
+
+프론트엔드 개발자와 네트워크가 다른 경우(예: 서로 다른 집), **ngrok**을 사용하면 편리합니다.
+
+1.  [ngrok 다운로드](https://ngrok.com/download) 및 설치
+2.  터미널에서 실행: `ngrok http 5002`
+3.  생성된 URL (예: `https://xxxx.ngrok-free.app`)을 프론트엔드 개발자에게 전달
+4.  Swagger 주소: `https://xxxx.ngrok-free.app/apidocs`
+
 ## 📱 프론트엔드 연동 가이드 (Android)
 
 ### API 엔드포인트
 
-Base URL: `http://<SERVER_IP>:5001`
+Base URL: `http://<SERVER_IP>:5002`
 
 #### 1. 이벤트 조회
 *   `GET /api/events`

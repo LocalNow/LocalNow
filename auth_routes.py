@@ -9,6 +9,27 @@ auth_bp = Blueprint('auth', __name__)
 # [API] 구글 로그인 (Android ID Token 검증)
 @auth_bp.route('/google', methods=['POST'])
 def google_login():
+    """
+    구글 로그인 (ID Token 검증)
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+              description: "Google ID Token"
+    responses:
+      200:
+        description: "로그인 성공"
+      401:
+        description: "유효하지 않은 토큰"
+    """
     data = request.get_json()
     token = data.get('token')
     
@@ -50,6 +71,28 @@ def google_login():
 # [API] 회원가입
 @auth_bp.route('/register', methods=['POST'])
 def register():
+    """
+    회원가입
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+    responses:
+      201:
+        description: 회원가입 성공
+      400:
+        description: 사용자 이미 존재함
+    """
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -71,6 +114,28 @@ def register():
 # [API] 로그인
 @auth_bp.route('/login', methods=['POST'])
 def login():
+    """
+    로그인
+    ---
+    tags:
+      - Auth
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+    responses:
+      200:
+        description: 로그인 성공
+      401:
+        description: 인증 실패
+    """
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -87,6 +152,15 @@ def login():
 @auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
+    """
+    로그아웃
+    ---
+    tags:
+      - Auth
+    responses:
+      200:
+        description: 로그아웃 성공
+    """
     logout_user()
     return jsonify({"message": "Logged out successfully"}), 200
 
@@ -94,6 +168,15 @@ def logout():
 @auth_bp.route('/me', methods=['GET'])
 @login_required
 def get_current_user():
+    """
+    내 정보 확인 (세션 체크)
+    ---
+    tags:
+      - Auth
+    responses:
+      200:
+        description: "현재 로그인된 사용자 정보 반환"
+    """
     return jsonify({
         "id": current_user.id,
         "username": current_user.username

@@ -93,6 +93,7 @@ class VenueCrawler:
                     # 혹은 제목에서 유추? 일단 기본 정보만
                     
                     # 날짜 파싱
+                    date_text = "" # Default if not found
                     start_date, end_date = self.parse_date_range(date_text)
                     
                     # 날짜 필터링 (어제 날짜 이후만 포함)
