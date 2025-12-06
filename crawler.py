@@ -98,8 +98,10 @@ class DataCrawler:
             
         return results
 
-    # [Helper] 텍스트에서 날짜 추출 (YYYY.MM.DD or MM.DD)
+    # [Helper] 텍스트에서 날짜 추출 (YYYY.MM.DD or MM.DD or MM월 DD일)
     def extract_date_range(self, text):
+        current_year = datetime.now().year
+        
         # 1. YYYY.MM.DD ~ YYYY.MM.DD
         match_full = re.search(r'(\d{4}\.\d{1,2}\.\d{1,2})\s*~\s*(\d{4}\.\d{1,2}\.\d{1,2})', text)
         if match_full:
@@ -108,13 +110,22 @@ class DataCrawler:
         # 2. MM.DD ~ MM.DD (현재 연도 가정)
         match_short = re.search(r'(\d{1,2}\.\d{1,2})\s*~\s*(\d{1,2}\.\d{1,2})', text)
         if match_short:
-            year = datetime.now().year
-            return f"{year}.{match_short.group(1)}~{year}.{match_short.group(2)}"
+            return f"{current_year}.{match_short.group(1)}~{current_year}.{match_short.group(2)}"
             
-        # 3. YYYY.MM.DD (단일 날짜)
+        # 3. MM월 DD일 ~ MM월 DD일
+        match_kor = re.search(r'(\d{1,2})월\s*(\d{1,2})일\s*~\s*(\d{1,2})월\s*(\d{1,2})일', text)
+        if match_kor:
+            return f"{current_year}.{match_kor.group(1)}.{match_kor.group(2)}~{current_year}.{match_kor.group(3)}.{match_kor.group(4)}"
+
+        # 4. YYYY.MM.DD (단일 날짜)
         match_single = re.search(r'(\d{4}\.\d{1,2}\.\d{1,2})', text)
         if match_single:
             return match_single.group(1)
+            
+        # 5. MM월 DD일 (단일 날짜)
+        match_kor_single = re.search(r'(\d{1,2})월\s*(\d{1,2})일', text)
+        if match_kor_single:
+            return f"{current_year}.{match_kor_single.group(1)}.{match_kor_single.group(2)}"
             
         return None
 
@@ -134,12 +145,18 @@ class DataCrawler:
         }
         
         all_results = []
+        today = datetime.now()
         
-        # 어제 날짜 계산 (YYYYMMDD)
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-        
+        # Known Venues (Expanded)
+        known_venues = [
+            "송도컨벤시아", "센트럴파크", "트리플스트리트", "현대프리미엄아울렛", "아트센터인천",
+            "연수문화재단", "인천글로벌캠퍼스", "솔찬공원", "해돋이공원", "미추홀공원",
+            "달빛축제공원", "인천도시역사관", "트라이보울", "G타워", "커낼워크", "송도달빛축제공원",
+            "송도국제캠핑장", "인천대학교", "연세대 국제캠퍼스", "송도 센트럴파크", "송도 한옥마을"
+        ]
+
         for keyword in keywords:
-            params = {"query": keyword, "display": 5, "sort": "date"} # 키워드별 최신순 5개
+            params = {"query": keyword, "display": 10, "sort": "sim"} # 정확도순으로 변경하여 관련성 높임
             
             try:
                 print(f" 네이버 블로그 검색: {keyword}")
@@ -147,94 +164,86 @@ class DataCrawler:
                 data = resp.json()
                 items = data.get('items', [])
                 if not items:
-                    print(f"  -> 결과 없음. 응답: {str(data)[:200]}")
+                    print(f"  -> 결과 없음.")
                 
                 for item in items:
-                    # 날짜 필터링 (어제 날짜 이후만 포함)
-                    postdate = item.get('postdate', '00000000')
-                    if postdate < yesterday:
+                    raw_title = item['title']
+                    clean_title = re.sub('<.+?>', '', raw_title)
+                    clean_desc = re.sub('<.+?>', '', item['description'])
+                    
+                    # [Strict Filtering] 송도/연수구 관련 내용이 없으면 과감히 제외
+                    if "송도" not in clean_title and "연수구" not in clean_title and "송도" not in clean_desc and "연수구" not in clean_desc:
                         continue
 
-                    clean_title = re.sub('<.+?>', '', item['title'])
-                    clean_desc = re.sub('<.+?>', '', item['description'])
+                    # [Title Cleaning] 블로그 제목 정제
+                    clean_title = re.sub(r'\[.*?\]', '', clean_title)
+                    suffixes = ["후기", "리뷰", "다녀왔어요", "방문기", "소식", "안내", "개최", "일정", "정보", "추천"]
+                    for suffix in suffixes:
+                        clean_title = clean_title.replace(suffix, "")
+                    clean_title = clean_title.strip()
                     
                     # 중복 제거
                     if clean_title in self.seen_titles:
                         continue
                     
-                    # 데이터 순도 강화: '일시'나 '장소' 관련 키워드가 없으면 제외 (너무 모호한 글)
-                    # 제목에 명확한 이벤트 키워드가 없으면 제외 (사용자 요청: 정확한 행사만)
-                    strict_keywords = ["축제", "마켓", "공연", "전시", "행사", "페스티벌", "박람회"]
-                    if not any(x in clean_title for x in strict_keywords):
+                    # 날짜 추출 (가장 중요)
+                    date_str = self.extract_date_range(clean_title + " " + clean_desc)
+                    
+                    # [CRITICAL] 날짜를 추출하지 못하면 이벤트로 간주하지 않음 (블로그 날짜 사용 금지)
+                    if not date_str:
+                        continue
+
+                    start_date = None
+                    end_date = None
+                    try:
+                        if "~" in date_str:
+                            parts = date_str.split("~")
+                            start_date = datetime.strptime(parts[0].strip(), "%Y.%m.%d")
+                            end_date = datetime.strptime(parts[1].strip(), "%Y.%m.%d")
+                        else:
+                            start_date = datetime.strptime(date_str.strip(), "%Y.%m.%d")
+                            end_date = start_date
+                    except:
+                        continue # 날짜 파싱 실패시 제외
+
+                    # [Future Filter] 종료일이 오늘보다 이전이면 제외 (이미 끝난 행사)
+                    if end_date and end_date < today:
                         continue
 
                     self.seen_titles.add(clean_title)
                     
-                    # 위치 추론 (Known Venues)
-                    known_venues = [
-                        "송도컨벤시아", "센트럴파크", "트리플스트리트", "현대프리미엄아울렛", "아트센터인천",
-                        "연수문화재단", "인천글로벌캠퍼스", "솔찬공원", "해돋이공원", "미추홀공원",
-                        "달빛축제공원", "인천도시역사관", "트라이보울", "G타워", "커낼워크", "송도달빛축제공원"
-                    ]
-                    
+                    # 위치 추론
                     search_query = None
                     for venue in known_venues:
                         if venue in clean_title or venue in clean_desc:
                             search_query = venue
                             break
                     
-                    if not search_query:
-                        # 기존 방식: 제목 앞 2단어 (정확도 낮음)
-                        # search_query = " ".join(clean_title.split()[:2])
-                        # 변경: 위치 정보가 없으면 굳이 이상한 좌표를 찍지 않도록 None 유지
-                        pass
+                    geo = None
+                    if search_query:
+                        geo = self.get_geo_location(search_query)
+                    else:
+                        if "송도" in clean_title:
+                             geo = self.get_geo_location(clean_title)
 
-                    geo = self.get_geo_location(search_query) if search_query else None
+                    if not geo:
+                        continue
                     
-                    # 카테고리 자동 분류 키워드별 
+                    if "연수구" not in geo['address'] and "송도" not in geo['address']:
+                        continue
+
+                    # 카테고리 자동 분류
                     category = "기타"
                     if "마켓" in keyword: category = "플리마켓"
                     elif "축제" in keyword or "페스티벌" in keyword: category = "축제"
-                    elif "버스킹" in keyword or "공연" in keyword: category = "공연"
+                    elif "버스킹" in keyword or "공연" in keyword or "콘서트" in keyword: category = "공연"
                     elif "전시" in keyword or "박람회" in keyword: category = "전시"
                     elif "팝업" in keyword: category = "전시"
-
-                    # ㄷㅂㄱ
-                    if not geo:
-                        geo = {
-                            "lat": 0.0,
-                            "lng": 0.0,
-                            "place_name": "위치 정보 없음",
-                            "address": "주소 미상"
-                        }
-
-                    # 날짜 추출 
-                    extracted_date = self.extract_date_range(clean_title)
-                    # Date Parsing for Blog (Try best effort)
-                    # We have 'postdate' but that's not event date.
-                    # We can try to extract from title/desc using extract_date_range, but that returns string.
-                    # Ideally we need a parser. For now, set to None or try to parse the string result.
-                    # Let's try to use extract_date_range and parse it.
-                    date_str = self.extract_date_range(clean_title + " " + clean_desc)
-                    start_date = None
-                    end_date = None
-                    if date_str:
-                         try:
-                            # Supported formats from extract_date_range: YYYY.MM.DD~YYYY.MM.DD, YYYY.MM.DD
-                            if "~" in date_str:
-                                parts = date_str.split("~")
-                                start_date = datetime.strptime(parts[0].strip(), "%Y.%m.%d")
-                                end_date = datetime.strptime(parts[1].strip(), "%Y.%m.%d")
-                            else:
-                                start_date = datetime.strptime(date_str.strip(), "%Y.%m.%d")
-                                end_date = start_date
-                         except:
-                             pass
 
                     all_results.append({
                         "title": clean_title,
                         "category": category,
-                        "date": date_str if date_str else postdate, # Fallback to postdate if extraction fails
+                        "date": date_str, # 정확히 추출된 날짜만 사용
                         "start_date": start_date,
                         "end_date": end_date,
                         "location": geo['place_name'],
@@ -269,8 +278,10 @@ class DataCrawler:
                             # 위치명도 더 정확하게 업데이트
                             if item['location'] == "인천 (상세 링크 참조)":
                                 item['location'] = geo['place_name']
-
-                    all_results.append(item)
+                    
+                    # [Location Filtering] Venue data is usually trusted, but check if we have coords
+                    if item['lat'] != 0.0 and item['lng'] != 0.0:
+                         all_results.append(item)
             print(f"Venue Crawling done. Added {len(venue_data)} items.")
         except Exception as e:
             print(f"Venue Crawling failed: {e}")

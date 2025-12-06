@@ -33,33 +33,24 @@ def get_events():
         description: DB에 저장된 이벤트 목록을 반환합니다.
     """
     from datetime import datetime, timedelta
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+    today = datetime.now()
     
-    events = Event.query.filter(Event.date >= yesterday).order_by(Event.date).all()
-    result = []
-    for event in events:
-        result.append({
-            "id": event.id,
-            "title": event.title,
-            "category": event.category,
-            "date": event.date,
-            "location": event.location,
-            "lat": event.lat,
-            "lng": event.lng,
-            "description": event.description,
-            "image": event.image,
-            "source": event.source,
-            "link": event.link
-        })
+    # Filter events whose end_date is today or in the future
+    events = Event.query.filter(
+        (Event.end_date >= today) | (Event.end_date == None)
+    ).order_by(Event.start_date).all()
+    
+    result = [event.to_dict() for event in events]
+    
     return jsonify({
         "status": "success",
         "count": len(result),
         "data": result
     })
 
-# [API 3] 크롤링 테스트 (실시간 - 디버깅용)
+# [API 3] 크롤링 테스트 (실시간 + DB 저장)
 # 주소: http://localhost:5000/api/crawl/test
-# 설명: 공공데이터와 네이버 블로그 데이터를 실시간으로 긁어와서 보여줍니다.
+# 설명: 공공데이터와 네이버 블로그 데이터를 실시간으로 긁어와서 DB에 저장합니다.
 @api_bp.route('/crawl/test', methods=['GET'])
 def test_crawling():
     try:
@@ -71,23 +62,51 @@ def test_crawling():
         public_data = crawler.fetch_public_festivals()
         
         # 2. 네이버 블로그(플리마켓 등) 수집
-        # 별도 키워드 없이 호출하면 내부 추천 키워드 리스트 전체 검색
         print(">> [Request] 네이버 블로그 수집 요청 시작...")
         blog_data = crawler.fetch_naver_blogs() 
         
-        # 결과 합치기
+        all_data = public_data + blog_data
+        
+        # 3. DB에 저장
+        new_count = 0
+        for item in all_data:
+            # 중복 체크 (제목과 날짜가 같으면 중복으로 간주)
+            exists = Event.query.filter_by(title=item['title'], date=item.get('date')).first()
+            if not exists:
+                new_event = Event(
+                    title=item['title'],
+                    category=item.get('category'),
+                    date=item.get('date'),
+                    start_date=item.get('start_date'),
+                    end_date=item.get('end_date'),
+                    location=item.get('location'),
+                    lat=item.get('lat', 0),
+                    lng=item.get('lng', 0),
+                    description=item.get('description', ''),
+                    image=item.get('image', ''),
+                    source=item.get('source', ''),
+                    link=item.get('link', '')
+                )
+                db.session.add(new_event)
+                new_count += 1
+        
+        db.session.commit()
+        print(f">> [Request] 크롤링 완료. {len(all_data)}개 중 {new_count}개 신규 저장.")
+        
+        # 결과 반환
         result = {
             "status": "success",
-            "total_count": len(public_data) + len(blog_data),
+            "total_count": len(all_data),
+            "new_saved": new_count,
             "data": {
-                "public_festivals": public_data, # 공식 행사
-                "naver_blogs": blog_data,        # 비공식 행사 (플리마켓 등)
+                "public_festivals": public_data,
+                "naver_blogs": blog_data,
             }
         }
         return jsonify(result)
 
     except Exception as e:
-        # 에러 발생 시 처리
+        db.session.rollback()
         return jsonify({
             "status": "error",
             "message": str(e)

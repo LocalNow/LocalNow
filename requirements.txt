@@ -5,7 +5,7 @@ requests==2.31.0
 python-dotenv==1.0.0
 selenium==4.38.0
 webdriver-manager==4.0.2
-flasgger==0.9.17
+flasgger
 firebase-admin==6.2.0
 Flask-Login==0.6.3
 APScheduler==3.10.4
