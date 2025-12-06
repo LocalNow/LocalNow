@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 바깥 원 -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,2A10,10 0 1,0 22,12A10,10 0 0,0 12,2z" />
+
+    <!-- ‘i’ 세부 정보 막대 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,11h2v6h-2z" />
+
+    <!-- ‘i’ 점 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,7h2v2h-2z" />
+</vector>

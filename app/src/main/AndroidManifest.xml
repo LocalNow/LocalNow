@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.localnow">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:name=".GlobalApplication"
+        android:allowBackup="true"
+        android:usesCleartextTraffic="true"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.LocalNow">
+
+        <meta-data
+            android:name="com.kakao.sdk.AppKey"
+            android:value="08d3a1f30f30c96a181bc72725eeeefb" />
+
+        <!-- Launcher Activity -->
+        <activity android:name=".SplashActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Pages -->
+        <activity android:name=".MainActivity" />
+        <activity android:name=".NotificationActivity" />
+        <activity android:name=".SearchActivity" />
+        <activity android:name=".BookmarkActivity" />
+        <activity android:name=".EventDetailActivity" />
+        <activity android:name=".LoginActivity" />
+        <activity android:name=".SignupActivity" />
+        <activity android:name=".CalendarActivity" />
+    </application>
+
+</manifest>
